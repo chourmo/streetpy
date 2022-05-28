@@ -45,8 +45,8 @@ setup(
     setup_requires=[] + pytest_runner,
 
     # Additional entries you may want simply uncomment the lines you want and fill in the data
-    # url='http://www.my_package.com',  # Website
-    # install_requires=[],              # Required packages, pulls from pip if needed; do not use for Conda deployment
+    url='https://github.com/chourmo/streetpy',  # Website
+    install_requires=["numpy", "scipy", "pandas", "geopandas", "pygeos", "pandana", "osmdatapy", "netpandas"],
     # platforms=['Linux',
     #            'Mac OS-X',
     #            'Unix',
@@ -54,6 +54,6 @@ setup(
     # python_requires=">=3.5",          # Python version restrictions
 
     # Manual control if final package is compressible or not, set False to prevent the .egg from being made
-    # zip_safe=False,
+    zip_safe=False,
 
 )
