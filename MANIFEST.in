@@ -4,4 +4,5 @@ include CODE_OF_CONDUCT.md
 include versioneer.py
 
 graft streetpy
-global-exclude *.py[cod] __pycache__ *.so
+global-exclude *.py[cod] __pycache__ *.soinclude streetpy/_version.py
+include streetpy/_version.py
