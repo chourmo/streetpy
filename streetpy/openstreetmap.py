@@ -1,24 +1,18 @@
 # -*- coding: utf-8 -*-
 
-import pandas as pd
-import geopandas as gpd
-import netpandas as npd
 import os.path
 
+import netpandas as npd
+import pandas as pd
+
+import streetpy.attributes as attr
 # import streetpy constants and default configurations
 import streetpy.config.constants as const
 import streetpy.config.osm_tags as osm_conf
-import streetpy.config.speeds as spd_conf
 import streetpy.config.parse as parse
-import streetpy.attributes as attr
-
-
-from streetpy.streetpy import (
-    street_mode_columns,
-    is_accessible,
-    is_designated,
-)
+import streetpy.config.speeds as spd_conf
 from streetpy.spatial import reverse
+from streetpy.streetpy import is_accessible, is_designated, street_mode_columns
 
 try:
     from osmdatapy import OSM, Query

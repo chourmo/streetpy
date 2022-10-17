@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 
-import pandas as pd
-import geopandas as gpd
 import netpandas as npd
+import pandas as pd
 
 try:
     import pandana as pnd

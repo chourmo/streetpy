@@ -3,21 +3,18 @@
 """
 Generic functions to create and modify streetpy dataframes
 """
-import tempfile
 import shutil
-import numpy as np
+import tempfile
+from pathlib import Path
+
 import geopandas as gpd
 import netpandas as npd
-import pandas as pd
+from pandas.api.types import is_categorical_dtype, is_integer_dtype
 
+import streetpy.attributes as attrs
 import streetpy.config.constants as const
 import streetpy.config.speeds as spd_conf
-import streetpy.attributes as attrs
 import streetpy.simplification as simp
-
-
-from pandas.api.types import is_integer_dtype, is_categorical_dtype
-from pathlib import Path
 
 
 def read_streets(path, source, target, directed):

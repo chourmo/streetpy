@@ -7,7 +7,6 @@ import scipy as sp
 import streetpy.config.constants as const
 import streetpy.config.parse as parse
 
-
 # -------------------------------------------------
 # Units
 

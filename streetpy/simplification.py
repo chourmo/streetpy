@@ -1,15 +1,11 @@
 # -*- coding: utf-8 -*-
 
-import numpy as np
-import pandas as pd
-import netpandas as npd
 import geopandas as gpd
+import netpandas as npd
+import pandas as pd
 
-import streetpy.config.constants as const
-import streetpy.streetpy as st
 import streetpy.config.osm_tags as osm_tags
-
-from pandas.api.types import is_numeric_dtype
+import streetpy.streetpy as st
 
 MAX_ITER = 100
 

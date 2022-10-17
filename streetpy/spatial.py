@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
-import numpy as np
-import scipy as sp
-import pandas as pd
 import geopandas as gpd
+import numpy as np
+import pandas as pd
 import pygeos as pg
-
+import scipy as sp
 
 COORD_EQUAL_ATOL = 1e-6  # the distance below which coordinates are considered equal
 

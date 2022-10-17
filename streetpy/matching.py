@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 
-import pandas as pd
 import geopandas as gpd
 import netpandas as npd
-from .spatial import sublinestring, substring
-from .shortest_path import shortest_path, shortest_paths
-
 import networkx as nx
+import pandas as pd
+
+from .shortest_path import shortest_path, shortest_paths
+from .spatial import sublinestring, substring
 
 
 def match_trajectories(
