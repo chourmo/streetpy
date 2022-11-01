@@ -178,7 +178,7 @@ def insert_point(geometry, distance, normalized=False):
         distance.to_numpy() + pts["_pos"].groupby(level=0).min().to_numpy()
     )
 
-    pts = pts.append(new_pts)
+    pts = pd.concat([pts, new_pts], axis=0)
 
     pts.index.name = "_ix"
     pts = pts.reset_index().sort_values(["_ix", "_pos"])
@@ -270,3 +270,12 @@ def substring(geoms, starts=None, ends=None, normalized=False):
     df = _substring(df, starts, ends)
 
     return df
+
+def _remove_duplicated_points(geoms):
+    ''' remove duplicated points in linestring or polygon '''
+
+    if 'Point' in geoms.geom_type:
+        raise ValueError("Cannot remove duplicated point from points geometries")
+
+    simplified = pg.set_precision(_as_geometry_array(geoms), 0.001)
+    return gpd.GeoSeries(pd.Series(simplified, index=geoms.index), crs=geoms.crs)

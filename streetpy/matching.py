@@ -5,8 +5,9 @@ import netpandas as npd
 import networkx as nx
 import pandas as pd
 
-from .shortest_path import shortest_path, shortest_paths
-from .spatial import sublinestring, substring
+from .shortest_path import shortest_paths
+from .spatial import substring, _remove_duplicated_points
+
 
 
 def match_trajectories(
@@ -143,7 +144,11 @@ def _edge_weights(pt_geom, edge_geom, distances, weights, proximity_factor=5):
     proximity_factor : multiplicator to favor edges close to stops
     """
 
-    dist = edge_geom.project(pt_geom).to_frame("proj_length")
+    # bug in GEOS line_locate_point if duplicated points in linestring
+    # change_precision before project
+
+    simple_edges = _remove_duplicated_points(edge_geom['edge_geom'])
+    dist = simple_edges.project(pt_geom).to_frame("proj_length")
     dist["pt_wt"] = distances * weights / edge_geom.length
 
     return dist[["proj_length", "pt_wt"]]
@@ -226,7 +231,6 @@ def _transition_graph(pts, netdf, source, target, weight, graph=None):
     df = npd.set_network(
         df, directed=True, source="arc_id", target="arc_id" + "_n", drop=False
     )
-
     return df
 
 
