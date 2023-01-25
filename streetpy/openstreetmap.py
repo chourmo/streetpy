@@ -236,7 +236,7 @@ def _edge_query(config, modes, access_level, track, construction):
 
     query = Query(
         ways=True,
-        necessary_tags=nec_tags,
+        must_tags=nec_tags,
         tags=tags,
         exclude=config.STREET_EXCLUDE,
         keep_first=False,
