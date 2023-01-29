@@ -9,6 +9,7 @@ from .simplification import filter_zones, simplify
 from .streetpy import (is_accessible, is_designated, is_valid_street,
                        read_streets, save_streets, street_columns,
                        street_mode_columns, to_single_mode)
+from .spatial import bearings, ordered_bearings, polygon_edges, polygon_geometries
 
 versions = get_versions()
 __version__ = versions['version']

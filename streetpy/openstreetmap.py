@@ -100,7 +100,7 @@ def streets_from_osm(
 
     for mode in modes:
         df = _append_modal(df, df_modal, config, mode, drive_right)
-
+    
     # at least one mode must be used, walk is bidirectional
     if "walk" in modes:
         df = df.drop(columns=["walk_r"])
@@ -139,6 +139,9 @@ def streets_from_osm(
 
     # remove non connected edges, except for rail mode
     df = _filter_disconnected(df)
+
+    # set railway to highway if same edges
+    df = _deduplicate_railways(df)
 
     # convert to categories
     if len(modes) == 1 and const.RAILWAY in modes:
@@ -632,3 +635,18 @@ def _maxspeed_remove_country(df):
     df.loc[country.index, const.SPEED] = pd.NA
 
     return df
+
+def _deduplicate_railways(df):
+    """ 
+    Set railways to value if an edge is common to rail and highways, remove railway
+    """
+    
+    res = df.copy()
+    dupl_roads = df.loc[(df.edge.duplicated()) & (~df.highway.isna()), ["edge"]].reset_index()
+    dupl_rails_mask = df['edge'].isin(dupl_roads["edge"]) & (~df.railway.isna())
+
+    new_rails = pd.merge(dupl_roads, df.loc[dupl_rails_mask, ["edge", "railway"]], on="edge")
+    new_rails = new_rails.set_index("index")
+    res.loc[res.index.isin(new_rails.index), "railway"] = new_rails["railway"]
+
+    return res.loc[~dupl_rails_mask].copy()

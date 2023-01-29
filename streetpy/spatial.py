@@ -325,20 +325,20 @@ def ordered_bearings(df, distance=0.1):
     Return a dataframe of edges at node id in clockwise bearing order
     """
 
-    res = df.copy()
+    res = df.net.expand_edges(source="source", target="target", drop=True)
     if res.index.name is None:
         raise ValueError("dataframe index must have a name")
     else:
         edge_ix = res.index.name
 
-    st = res[["from"]].reset_index()
+    st = res[["source"]].reset_index()
     st["angle"] = bearings(res.geometry, distance)
 
-    end = res[["to"]].reset_index()
+    end = res[["target"]].reset_index()
     end[edge_ix] = end[edge_ix] * -1
     end["angle"] = bearings(res.geometry, distance, reverse=True)
 
-    res = pd.concat([st.set_index("from"), end.set_index("to")])
+    res = pd.concat([st.set_index("source"), end.set_index("target")])
     res.index.name = "node_id"
 
     res = res.sort_values(["node_id", "angle"])
@@ -387,7 +387,7 @@ def _polygonize(df, mapper):
     return results
 
 
-def polygon_arc_edges(df):
+def polygon_edges(df):
     """
     Find inner polygons inside graph edges
     """
@@ -428,23 +428,24 @@ def polygon_arc_edges(df):
     return pd.Series(polygons)
 
 
-def polygon_geometries(df):
+def polygon_geometries(df, edges):
     """ Create a GeoSeries of polygons from a list of edges """
 
+    res = edges.copy()
     res.index.name = "poly_ix"
-    res = res.to_frame("edgeid")
-    res2 = res.explode(column="edgeid").reset_index()
+    res = res.to_frame("edges")
+    res2 = res.explode(column="edges").reset_index()
 
     # geometry
-    reverse_geom_mask = res2["edgeid"] < 0
-    res2["edgeid"] = res2["edgeid"].abs()
+    reverse_geom_mask = res2["edges"] < 0
+    res2["edges"] = res2["edges"].abs()
 
-    res2 = pd.merge(res2, df[["geometry"]], left_on="edgeid", right_index=True, how="left")
+    res2 = pd.merge(res2, df[["geometry"]], left_on="edges", right_index=True, how="left")
     res2 = res2.set_geometry("geometry", crs=df.crs)
 
     res2.loc[reverse_geom_mask, "geometry"] = sh.reverse(res2.loc[reverse_geom_mask, "geometry"])
 
-    res2 = res2.groupby("poly_ix")["geometry"].apply(list)
-    res["geometry"] = res2.apply(sp.polygonize)
-    res = res.set_geometry("geometry", crs=df.crs).explode()
-    return  res.reset_index()
+    res["geometry"] = res2.groupby("poly_ix")["geometry"].apply(lambda x: sh.polygonize(list(x)))
+    #res["geometry"] = res2.apply(sh.polygonize)
+    res = res.set_geometry("geometry", crs=df.crs).explode(index_parts=False)
+    return  res.reset_index(drop=True)
