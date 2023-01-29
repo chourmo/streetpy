@@ -70,6 +70,9 @@ def streets_from_osm(
     df = osm_data.query(edge_query)
     df = df.drop(columns=["osmtype"]).to_crs(crs)
 
+    # extract osmid from index to have a unique row index
+    df = df.reset_index()
+
     # drop all content for track and construction
     if not track:
         df = _drop_columns(df, config.TRACK_EXCLUDE)
@@ -279,7 +282,7 @@ def _modal_query(way_ids, modes):
         tags = ["highway"]
 
     query = Query(
-        ways=True, tags=tags, necessary_tags=nec_tags, way_ids=way_ids, flat=True
+        ways=True, tags=tags, must_tags=nec_tags, way_ids=way_ids, geometry=False
     )
 
     return query
@@ -337,13 +340,11 @@ def _append_modal(df, df_modal, config, mode, drive_right):
     mode_conf = parse.osm_config_for_mode(config, mode)
     name = mode_conf["mode"]
     name_r = name + const.REV_SUFFIX
-    forward, backward = ("right", "left")
-    if ~drive_right:
-        forward, backward = ("left", "right")
+
 
     res = pd.merge(
         df_modal.reset_index(),
-        df[[OSMID, "oneway"]].drop_duplicates(OSMID),
+        df[["oneway", OSMID]].drop_duplicates(OSMID),
         on=OSMID,
         how="left",
     )
@@ -406,8 +407,8 @@ def _append_modal(df, df_modal, config, mode, drive_right):
         res.loc[
             (~up.isna()) & (~res[name_r].isna()) & (res[name_r] != "no"), name_r
         ] = "yes"
-
-    res = pd.merge(df, res[[OSMID, name, name_r]], on=OSMID, how="left")
+    
+    res = pd.merge(df, res[[name, name_r]], left_index=True, right_index=True, how="left")
 
     # defaults as oneway column
     res.loc[res[name].isna(), name] = "yes"
@@ -443,7 +444,7 @@ def _update_dict(df, conf):
     return res
 
 
-def _convert_oneway(df):
+def _convert_oneway(df, junction=const.JUNCTION):
     """
     Convert oneways to bool, fillna roundabout as oneway
     revert source, target and geometry if oneway == -1
@@ -452,14 +453,14 @@ def _convert_oneway(df):
     res = df.copy()
 
     # reverse -1 oneway
-    mask = df.oneway == "-1"
-    df_s = df.loc[mask, "source"].copy()
-    df.loc[mask, "source"] = res["target"]
+    mask = res.oneway == "-1"
+    df_s = res.loc[mask, "source"].copy()
+    res.loc[mask, "source"] = res["target"]
     res.loc[mask, "target"] = df_s
     res.loc[mask,  df.geometry.name] = reverse(res.loc[mask,  df.geometry.name])
 
     # force roundabouts to oneway
-    res.loc[(res[const.JUNCTION] == "roundabout") & (res.oneway.isna()), "oneway"] = "1"
+    res.loc[(res[junction] == "roundabout") & (res.oneway.isna()), "oneway"] = "1"
 
     # map values
     res["oneway"] = res["oneway"].map({"yes": True, "1": True, "-1":True}).fillna(False)
@@ -467,7 +468,7 @@ def _convert_oneway(df):
     return res
 
 
-def _convert_junction(df, to_replace):
+def _convert_junction(df, to_replace, highway=const.HIGHWAY, junction=const.JUNCTION, link="_link"):
     """
     Prepare junction column=
         - convert _link highways to simple text
@@ -476,14 +477,13 @@ def _convert_junction(df, to_replace):
     """
 
     res = df.copy()
-    links = df[const.HIGHWAY].str.split("_link", expand=True)
+    
+    mask = res[highway].str.endswith(link, False)
+    res.loc[mask, highway] = res.loc[mask, highway].str.slice(stop=-len(link))
+    res.loc[mask, junction] = "link"
 
-    if links.shape[1] > 1:
-        links = links.rename(columns={0: "col0", 1: "col1", 2: "col2"})
-        mask = ~links["col1"].isna()
-        res.loc[mask, const.HIGHWAY] = links["col0"]
-        res.loc[mask, const.JUNCTION] = "link"
-    res[const.JUNCTION] = res[const.JUNCTION].replace(to_replace=to_replace)
+    mask = ~res[junction].isna()
+    res.loc[mask, junction] = res.loc[mask, junction].replace(to_replace=to_replace)
 
     return res
 
@@ -493,16 +493,20 @@ def _bikes_on_walkways(df):
     replace bike or bike_r to footway or pedestrian if
     walk is steps, pedestrian or footway and bikes or bike_r = 'yes'
     """
+
+    res = df.copy()
+    
     name, name_r = const.mode_columns("bike")
     walk_n, _ = const.mode_columns("walk")
 
     if name not in df.columns or name_r not in df.columns or "walk" not in df.columns:
         return df
 
-    mask = df[walk_n].isin(["pedestrian", "footway", "steps"])
-    df.loc[(df[name] == "yes") & (mask), name] = df[walk_n]
-    df.loc[(df[name_r] == "yes") & (mask), name_r] = df[walk_n]
-    return df
+    mask = res[walk_n].isin(["pedestrian", "footway", "steps"])
+    res.loc[(res[name] == "yes") & (mask), name] = res[walk_n]
+    res.loc[(res[name_r] == "yes") & (mask), name_r] = res[walk_n]
+    
+    return res
 
 
 def _filter_abandoned_railways(df):
