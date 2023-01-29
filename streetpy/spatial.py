@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import pygeos as pg
 import scipy as sp
+import shapely as sh
 
 COORD_EQUAL_ATOL = 1e-6  # the distance below which coordinates are considered equal
 
@@ -343,3 +344,107 @@ def ordered_bearings(df, distance=0.1):
     res = res.sort_values(["node_id", "angle"])
 
     return res
+
+# ------------------
+# Create polygons inside street arcs
+# ------------------
+
+def _map_directed_edge(edgeid, mapper):
+    if edgeid < 0:
+        return -1 * mapper[-1 * edgeid]
+    return mapper[edgeid]
+
+
+def _polygonize(df, mapper):
+
+    edges = df.set_index("to_edge")["from_edge"].to_dict()
+    traversed = set([])
+    results = []
+
+    for edge in edges.keys():
+
+        if edge in traversed:
+            continue
+
+        polygon = [edge]
+        traversed.add(edge)
+        cursor = edges[-edge]
+
+        while cursor != edge:
+
+            # remove deadends
+            if len(polygon) > 0 and cursor == -1 * polygon[-1]:
+                polygon = polygon[:-1]
+            else:
+                polygon.append(cursor)
+
+            traversed.add(cursor)
+            cursor = edges[-cursor]
+
+        if len(polygon) > 2:
+            results.append([_map_directed_edge(x, mapper) for x in polygon])
+
+    return results
+
+
+def polygon_arc_edges(df):
+    """
+    Find inner polygons inside graph edges
+    """
+
+    # create an internal edge index, starting from 1
+    # negative indexes are edges in reverse direction
+
+    edges = df.copy()
+    if edges.index.name is None:
+        edges.index.name = "_reference_ix"
+    ref_edge_ix = edges.index.name
+    edges = edges.reset_index()
+    edges.index = edges.index + 1
+    edges.index.name = "from_edge"
+    edge_ix = edges.index.name
+
+    mapper = edges[ref_edge_ix].to_dict()
+
+    # create a graph between edges in counter clock wise order
+
+    nodes = ordered_bearings(edges)
+
+    nodes["to_edge"] = nodes[edge_ix].shift(1)
+    nodes["diff_angle"] = nodes["angle"] - nodes["angle"].shift(1)
+
+    # connect first edge to last edge
+    first_mask = ~nodes.index.duplicated(keep="first")
+    last_mask = ~nodes.index.duplicated(keep="last")
+    nodes.loc[first_mask, "to_edge"] = nodes.loc[last_mask, edge_ix].values
+    nodes.loc[first_mask, "diff_angle"] = (
+        nodes.loc[first_mask, "angle"] + 360 - nodes.loc[last_mask, "angle"].values
+    )
+
+    nodes["to_edge"] = nodes["to_edge"].astype(int)
+
+    polygons = _polygonize(nodes, mapper)
+
+    return pd.Series(polygons)
+
+
+def polygon_geometries(df):
+    """ Create a GeoSeries of polygons from a list of edges """
+
+    res.index.name = "poly_ix"
+    res = res.to_frame("edgeid")
+    res2 = res.explode(column="edgeid").reset_index()
+
+    # geometry
+    reverse_geom_mask = res2["edgeid"] < 0
+    res2["edgeid"] = res2["edgeid"].abs()
+
+    res2 = pd.merge(res2, df[["geometry"]], left_on="edgeid", right_index=True, how="left")
+    res2 = res2.set_geometry("geometry", crs=df.crs)
+
+    res2.loc[reverse_geom_mask, "geometry"] = sh.reverse(res2.loc[reverse_geom_mask, "geometry"])
+
+    res2 = res2.groupby("poly_ix")["geometry"].apply(list)
+    res["geometry"] = res2.apply(sp.polygonize)
+    res = res.set_geometry("geometry", crs=df.crs).explode()
+    return  res.reset_index()
