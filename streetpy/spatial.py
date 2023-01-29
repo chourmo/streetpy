@@ -279,3 +279,67 @@ def _remove_duplicated_points(geoms):
 
     simplified = pg.set_precision(_as_geometry_array(geoms), 0.001)
     return gpd.GeoSeries(pd.Series(simplified, index=geoms.index), crs=geoms.crs)
+
+
+# ------------------
+# Arc bearings at intersection
+# ------------------
+
+def _bearing_angles(x, y):
+    """return numpy array of bearings in degrees"""
+    d = np.degrees(np.arctan2(x, y))
+    return np.where(d < 0, d + 360, d)
+
+
+def bearings(df, distance=0.1, reverse=False):
+    """
+    Calculate angle with north of segment
+
+    Args:
+        df : a LineString GeoSeries
+        distance : distance for second point as percentage of linestring
+        reverse : boolean, if True return bearings from end of linestring
+    Returns:
+        a Series of angles in radians for each node
+    """
+
+    geotypes = df.geom_type.drop_duplicates()
+
+    if len(geotypes) > 1 or geotypes.values[0] != "LineString":
+        raise ValueError("Dataframe must only contain Linestrings")
+
+    if reverse:
+        start = df.geometry.interpolate(1, normalized=True)
+        end = df.geometry.interpolate(-10, normalized=False)
+
+    else:
+        start = df.geometry.interpolate(0)
+        end = df.geometry.interpolate(10, normalized=False)
+
+    return _bearing_angles(end.x - start.x, end.y - start.y)
+
+
+def ordered_bearings(df, distance=0.1):
+    """
+    Return a dataframe of edges at node id in clockwise bearing order
+    """
+
+    res = df.copy()
+    if res.index.name is None:
+        raise ValueError("dataframe index must have a name")
+    else:
+        edge_ix = res.index.name
+
+    st = res[["from"]].reset_index()
+    st["angle"] = bearings(res.geometry, distance)
+
+    end = res[["to"]].reset_index()
+    end[edge_ix] = end[edge_ix] * -1
+    end["angle"] = bearings(res.geometry, distance, reverse=True)
+
+    res = pd.concat([st.set_index("from"), end.set_index("to")])
+    res.index.name = "node_id"
+
+    res = res.sort_values(["node_id", "angle"])
+
+    return res
