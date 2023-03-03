@@ -232,7 +232,7 @@ def substring(geoms, starts=None, ends=None, normalized=False):
     Args :
         geoms : a Linestring GeoSeries
         start: optional Series of length to cut line after, replace nans by 0
-        end: optional Series of length to cut line before, replace nans by 1
+        end: optional Series of length to cut line before, replace nans by 1 or length
         normalized: boolean, starts and ends are between 0 and 1
 
         drop geometries if start=end
@@ -311,11 +311,11 @@ def bearings(df, distance=0.1, reverse=False):
 
     if reverse:
         start = df.geometry.interpolate(1, normalized=True)
-        end = df.geometry.interpolate(-10, normalized=False)
+        end = df.geometry.interpolate(-1*distance, normalized=True)
 
     else:
         start = df.geometry.interpolate(0)
-        end = df.geometry.interpolate(10, normalized=False)
+        end = df.geometry.interpolate(distance, normalized=True)
 
     return _bearing_angles(end.x - start.x, end.y - start.y)
 
@@ -381,7 +381,7 @@ def _polygonize(df, mapper):
             traversed.add(cursor)
             cursor = edges[-cursor]
 
-        if len(polygon) > 2:
+        if len(polygon) >= 2:
             results.append([_map_directed_edge(x, mapper) for x in polygon])
 
     return results
@@ -446,6 +446,5 @@ def polygon_geometries(df, edges):
     res2.loc[reverse_geom_mask, "geometry"] = sh.reverse(res2.loc[reverse_geom_mask, "geometry"])
 
     res["geometry"] = res2.groupby("poly_ix")["geometry"].apply(lambda x: sh.polygonize(list(x)))
-    #res["geometry"] = res2.apply(sh.polygonize)
     res = res.set_geometry("geometry", crs=df.crs).explode(index_parts=False)
     return  res.reset_index(drop=True)

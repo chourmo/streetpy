@@ -88,6 +88,7 @@ def streets_from_osm(
 
     df = _convert_junction(df, config.REPLACE_JUNCTIONS)
     df = _convert_oneway(df)
+    df = _convert_tunnel_bridge(df)
 
     # make a modal query and get data
     query = _modal_query(df[OSMID].drop_duplicates().tolist(), modes)
@@ -121,7 +122,7 @@ def streets_from_osm(
     df = _filter_service(df, config, access_level)
 
     # filter footways as sidewalks and paths
-    df = _filter_sidewalks(df, modes)
+    # df = _filter_sidewalks(df, modes)
     df = _filter_paths(df, modes)
 
     # find urban arcs
@@ -225,6 +226,8 @@ def _edge_query(config, modes, access_level, track, construction):
             "junction",
             "service",
             "maxspeed",
+            "bridge",
+            "tunnel",
         ]
     elif "rail" in modes:
         nec_tags = [const.HIGHWAY, const.RAILWAY]
@@ -235,6 +238,9 @@ def _edge_query(config, modes, access_level, track, construction):
             "junction",
             "service",
             "maxspeed",
+            "level",
+            "bridge",
+            "tunnel",
         ]
     else:
         nec_tags = [const.HIGHWAY]
@@ -489,6 +495,24 @@ def _convert_junction(df, to_replace, highway=const.HIGHWAY, junction=const.JUNC
     res.loc[mask, junction] = res.loc[mask, junction].replace(to_replace=to_replace)
 
     return res
+
+
+def _convert_tunnel_bridge(df):
+    """
+    clean values of tunnel and bridges columns :
+        - replace no by nan
+    """
+
+    if 'bridge' not in df.columns and 'tunnel' not in df.columns:
+        return df
+    res = df.copy()
+
+    if 'bridge' in res.columns:
+        res.loc[res.bridge=='no', 'bridge'] = pd.NA
+    if 'tunnel' in res.columns:
+        res.loc[res.tunnel=='no', 'tunnel'] = pd.NA
+    return res
+
 
 
 def _bikes_on_walkways(df):

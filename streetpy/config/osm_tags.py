@@ -51,6 +51,8 @@ ZONE_CONFIG = {
 # attributes
 
 HIGHWAY_TAGS = [
+    "bridge",
+    "tunnel",
     "access",
     "amenity",
     "area",
@@ -74,7 +76,6 @@ HIGHWAY_TAGS = [
     "footway",
     "highway",
     "junction",  # for roundabounts
-    "level",
     "lanes:psv",
     "lanes:psv:forward",
     "lanes:psv:backward",
