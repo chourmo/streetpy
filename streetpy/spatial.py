@@ -3,7 +3,6 @@
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import pygeos as pg
 import scipy as sp
 import shapely as sh
 
@@ -15,130 +14,11 @@ COORD_EQUAL_ATOL = 1e-6  # the distance below which coordinates are considered e
 # ------------------
 
 
-def _as_geometry_array(geometry):
-    """Convert geometry into a numpy array of PyGEOS geometries.
-
-    Args :
-    geometry
-        An array-like of PyGEOS geometries
-        or a GeoPandas GeoSeries/GeometryArray.
-    """
-
-    if isinstance(geometry, np.ndarray):
-        return geometry
-    elif isinstance(geometry, gpd.GeoSeries):
-        return geometry.values.data
-    elif isinstance(geometry, np.array.GeometryArray):
-        return geometry.data
-    else:
-        return np.asarray(geometry)
-
-
-def linemerge(gdf):
-    geom = pg.multilinestrings(_as_geometry_array(gdf), indices=gdf.index.to_numpy())
-    geom = pg.line_merge(geom)
-    index = gdf.index.drop_duplicates()
-    return gpd.GeoSeries(data=geom, index=index, crs=gdf.crs)
-
-
 def reverse(geom):
+    """ return the geometries of a GeoSeries in reverse direction
     """
-    return the geometries of a GeoSeries in reverse direction
-        remove after function added to Geopandas
-    """
-    return pg.reverse(_as_geometry_array(geom))
-
-
-def is_nan_scalar(x):
-    return x is None or x is np.nan or x is pd.NA
-
-
-def sublinestring(geom, start, end, normalized=False):
-    """
-    select part of linestring between distances start and end
-    start and end are between 0 and 1, normalized on length
-    """
-
-    if is_nan_scalar(start) or is_nan_scalar(end):
-        return geom
-
-    g = pg.from_shapely(geom)
-    
-    if pg.geometry.get_type_id(g) != 1:
-        raise TypeError("Geometry is not a LineString")
-
-    length = pg.measurement.length(g)
-
-    if normalized and start > 0 and start < 1 and end < 0 and end > 0:
-        start = length * start
-        end = length * end
-    elif normalized:
-        raise ValueError("start and end must be between 0 and 1")
-
-    elif start < 0 or start > end or start > length or end > length:
-        raise ValueError("input must be 0 <= start <= end <= length")
-    else:
-        start = start
-        end = end
-
-    if start == 0 and end == length:
-        return geom
-
-    if start == end:
-        p = pg.linear.line_interpolate_point(g, start)
-        coords = pg.coordinates.get_coordinates(p)
-        coords = np.append(coords, coords, axis=0)
-
-        return pg.creation.linestrings(coords)
-
-    coords = pg.coordinates.get_coordinates(g)
-
-    # cumulated distances
-    s = coords.shape[0]
-    dists = sp.spatial.distance.cdist(coords, coords)
-    dists = np.append(np.array([0]), dists[np.arange(s - 1), np.arange(1, s)], axis=0)
-    dists = np.cumsum(dists)
-
-    if start == 0:
-        coords = coords[np.where((dists < end))]
-        p = pg.linear.line_interpolate_point(g, end)
-        coords = np.append(coords, pg.coordinates.get_coordinates(p), axis=0)
-
-    elif end == length:
-        coords = coords[np.where((dists > start))]
-        p = pg.linear.line_interpolate_point(g, start)
-        coords = np.append(pg.coordinates.get_coordinates(p), coords, axis=0)
-
-    else:
-        # filter in range
-        coords = coords[np.where((dists > start) & (dists < end))]
-
-        # add start and end point
-        p = pg.linear.line_interpolate_point(g, start)
-        coords = np.append(pg.coordinates.get_coordinates(p), coords, axis=0)
-
-        p = pg.linear.line_interpolate_point(g, end)
-        coords = np.append(coords, pg.coordinates.get_coordinates(p), axis=0)
-
-    return pg.creation.linestrings(coords)
-
-
-def _linestring_coordinates(geometry, reindex=False):
-    """
-    Returns a dataframe of coordinates
-    if reindex, index are integers starting at 0
-    else, index is same as geometry index
-    """
-
-    g = _as_geometry_array(geometry)
-    coords, coords_index = pg.coordinates.get_coordinates(g, return_index=True)
-    pts = pd.DataFrame(data=coords, index=coords_index, columns=["x", "y"])
-
-    if not reindex:
-        mapper = pts.geometry.index.to_series().reset_index(drop=True)
-        pts.index = pts.index.map(mapper)
-
-    return pts
+    geom = gdf.geometry.values.data
+    return sh.reverse(geom)
 
 
 def _cumulative_length(coords):
@@ -146,6 +26,18 @@ def _cumulative_length(coords):
     dists = np.sqrt(np.sum((coords - np.roll(coords, 1, axis=0)) ** 2, axis=1))
     dists.iloc[0] = 0
     return np.cumsum(dists)
+
+def _line_interpolate_point(geometry, distance, normalized):
+    """ waiting for a geopandas integration
+    interpolate points at distance
+    see shapely function definition
+    """
+
+    new_pts = sh.line_interpolate_point(geometry.values.data, distance.to_numpy(), normalized)
+    new_coords = sh.get_coordinates(new_pts)
+    res = pd.DataFrame(new_coords, columns=["x", "y"], index=geometry.index)
+    
+    return res
 
 
 def insert_point(geometry, distance, normalized=False):
@@ -163,16 +55,13 @@ def insert_point(geometry, distance, normalized=False):
     if not geometry.index.equals(distance.index):
         raise ValueError("geometry and distance must share index")
 
-    g = _as_geometry_array(geometry)
-    pts = _linestring_coordinates(geometry, reindex=True)
-
+    pts = geometry.reset_index(drop=True).get_coordinates()
+    
     # distance from one point to the next, as if one line
     pts["_pos"] = _cumulative_length(pts[["x", "y"]])
 
     # new points at distance
-    new_pts = pg.linear.line_interpolate_point(g, distance.to_numpy(), normalized)
-    new_coords = pg.coordinates.get_coordinates(new_pts)
-    new_pts = pd.DataFrame(new_coords, columns=["x", "y"])
+    new_pts = _line_interpolate_point(geometry.reset_index(drop=True), distance, normalized)
 
     # distance on global linestring
     new_pts["_pos"] = (
@@ -183,10 +72,11 @@ def insert_point(geometry, distance, normalized=False):
 
     pts.index.name = "_ix"
     pts = pts.reset_index().sort_values(["_ix", "_pos"])
+    
     pts = pts.drop_duplicates(subset=["_ix", "_pos"])
     pts = pts.set_index("_ix")
 
-    res = pg.creation.linestrings(
+    res = sh.linestrings(
         coords=pts[["x", "y"]].to_numpy(), indices=pts.index.to_numpy()
     )
 
@@ -199,7 +89,7 @@ def _substring(geometry, starts, ends, normalized=False):
     points corresponding to starts and ends must exist in geometry
     """
 
-    pts = _linestring_coordinates(geometry, reindex=True)
+    pts = geometry.reset_index(drop=True).get_coordinates()
 
     pts["_pos"] = _cumulative_length(pts[["x", "y"]])
     geom_start = pts["_pos"].groupby(level=0).min()
@@ -218,14 +108,14 @@ def _substring(geometry, starts, ends, normalized=False):
         )
     ]
 
-    res = pg.creation.linestrings(
+    res = sh.linestrings(
         coords=pts[["x", "y"]].to_numpy(), indices=pts.index.to_numpy()
     )
 
     return res
 
 
-def substring(geoms, starts=None, ends=None, normalized=False):
+def sub_linestring(geoms, starts=None, ends=None, normalized=False):
     """
     Cut linestrings between starts and ends distance
 
@@ -272,14 +162,15 @@ def substring(geoms, starts=None, ends=None, normalized=False):
 
     return df
 
-def _remove_duplicated_points(geoms):
+def remove_duplicated_points(gdf):
     ''' remove duplicated points in linestring or polygon '''
 
-    if 'Point' in geoms.geom_type:
+    if 'Point' in gdf.geom_type:
         raise ValueError("Cannot remove duplicated point from points geometries")
 
-    simplified = pg.set_precision(_as_geometry_array(geoms), 0.001)
-    return gpd.GeoSeries(pd.Series(simplified, index=geoms.index), crs=geoms.crs)
+    geoms = gdf.geometry.values.data
+    simplified = sh.set_precision(geoms, grid_size=0.001)
+    return gpd.GeoSeries(pd.Series(simplified, index=gdf.index), crs=gdf.crs)
 
 
 # ------------------

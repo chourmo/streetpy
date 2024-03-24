@@ -6,7 +6,7 @@ import networkx as nx
 import pandas as pd
 
 from .shortest_path import shortest_paths
-from .spatial import substring, _remove_duplicated_points
+from .spatial import sub_linestring, remove_duplicated_points
 
 
 
@@ -147,7 +147,7 @@ def _edge_weights(pt_geom, edge_geom, distances, weights, proximity_factor=5):
     # bug in GEOS line_locate_point if duplicated points in linestring
     # change_precision before project
 
-    simple_edges = _remove_duplicated_points(edge_geom['edge_geom'])
+    simple_edges = remove_duplicated_points(edge_geom['edge_geom'])
     dist = simple_edges.project(pt_geom).to_frame("proj_length")
     dist["pt_wt"] = distances * weights / edge_geom.length
 
@@ -222,7 +222,7 @@ def _transition_graph(pts, netdf, source, target, weight, graph=None):
         df.loc[~mask, "path"] = npd.add_paths(df[source], df["path"])
 
         # add end node to last transition if on unique arc
-        max_stop = df.groupby("_tid")["stop"].transform(max)
+        max_stop = df.groupby("_tid")["stop"].transform("max")
         df.loc[(~mask) & (df.stop == max_stop), "path"] = npd.add_paths(
             df["path"], df[target + "_n"]
         )
@@ -302,10 +302,11 @@ def _split_at_stops(df, source, target, cut_length, stop):
     res[stop] = res[stop] + 1
     
     # drop geometries if cut_length = end_length
-    res = res.loc[(res[cut_length].isna()) |(res[cut_length]!=res["_end"])]
+    res = res.loc[(res[cut_length].isna()) | (res[cut_length]<res["_end"])]
+
     
     # cut geometries
-    res[geo] = substring(res.geometry, res[cut_length], res['_end'])
+    res[geo] = sub_linestring(res.geometry, res[cut_length], res['_end'])
     
     res = res.set_index(ixname)
     if df.index.name is None:
