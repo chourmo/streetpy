@@ -3,7 +3,6 @@
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-import scipy as sp
 import shapely as sh
 
 COORD_EQUAL_ATOL = 1e-6  # the distance below which coordinates are considered equal
@@ -17,7 +16,7 @@ COORD_EQUAL_ATOL = 1e-6  # the distance below which coordinates are considered e
 def reverse(geom):
     """ return the geometries of a GeoSeries in reverse direction
     """
-    geom = gdf.geometry.values.data
+    geom = gpd.geometry.values.data
     return sh.reverse(geom)
 
 

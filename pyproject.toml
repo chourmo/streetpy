@@ -1,0 +1,30 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "streetpy"
+version = "0.1.0"
+authors = [{ name = "Vincent Tinet" }]
+description = "A python library to analyse streets dataframes"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "numpy",
+    "scipy",
+    "pandas",
+    "geopandas",
+    "shapely",
+    "pandana",
+    "osmdatapy",
+    "netpandas",
+]
+
+[project.urls]
+Homepage = "https://github.com/chourmo/streetpy"
+Issues = "https://github.com/chourmo/streetpy/issues"
