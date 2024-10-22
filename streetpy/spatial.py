@@ -16,7 +16,7 @@ COORD_EQUAL_ATOL = 1e-6  # the distance below which coordinates are considered e
 def reverse(geom):
     """ return the geometries of a GeoSeries in reverse direction
     """
-    geom = gpd.geometry.values.data
+    geom = gpd.geometry.array
     return sh.reverse(geom)
 
 
@@ -32,7 +32,7 @@ def _line_interpolate_point(geometry, distance, normalized):
     see shapely function definition
     """
 
-    new_pts = sh.line_interpolate_point(geometry.values.data, distance.to_numpy(), normalized)
+    new_pts = sh.line_interpolate_point(geometry.array, distance.to_numpy(), normalized)
     new_coords = sh.get_coordinates(new_pts)
     res = pd.DataFrame(new_coords, columns=["x", "y"], index=geometry.index)
     
@@ -167,7 +167,7 @@ def remove_duplicated_points(gdf):
     if 'Point' in gdf.geom_type:
         raise ValueError("Cannot remove duplicated point from points geometries")
 
-    geoms = gdf.geometry.values.data
+    geoms = gdf.geometry.array
     simplified = sh.set_precision(geoms, grid_size=0.001)
     return gpd.GeoSeries(pd.Series(simplified, index=gdf.index), crs=gdf.crs)
 
