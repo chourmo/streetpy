@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 
-import numpy as np
-import pandas as pd
-import scipy as sp
+import numpy as np # type: ignore
+import pandas as pd # type: ignore
+import scipy as sp # type: ignore
 
 import streetpy.config.constants as const
 import streetpy.config.parse as parse

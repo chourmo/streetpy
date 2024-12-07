@@ -256,7 +256,7 @@ def _solve_path(df, weight, source, target, sequence):
     try:
         _, res = nx.bidirectional_dijkstra(G, start, end, weight)
         return res[1:-1]
-    except:
+    except nx.NetworkXNoPath:
         return None
 
 

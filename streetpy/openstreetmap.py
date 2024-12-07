@@ -60,10 +60,10 @@ def streets_from_osm(
         osm_data = OSM(place=path_or_place)
 
     # validate modes
-    if type(modes) == bool and modes:
+    if isinstance(modes, bool) and modes:
         modes = const.mode_list()
     if not set(modes).issubset(const.mode_list()):
-        raise ValueError("modes must be a subset of {1}".format(const.mode_list()))
+        raise ValueError("modes must be a subset of {0}".format(const.mode_list()))
 
     # parse base data
     edge_query = _edge_query(config, modes, access_level, track, construction)
@@ -199,8 +199,8 @@ def osm_excluding_zones(
     # filter restrictive
     df["access_level"] = "permissive"
 
-    l = [(k, v) for k, v in config.RESTRICTED_ZONES.items() if k in df.columns]
-    for k, v in l:
+    restricted_zones = [(k, v) for k, v in config.RESTRICTED_ZONES.items() if k in df.columns]
+    for k, v in restricted_zones:
         df.loc[df[k].isin(v), "access_level"] = "restrictive"
 
     # remove superposing polygons
@@ -593,7 +593,7 @@ def _filter_sidewalks(df, modes):
     if "walk" not in modes or "bike" not in modes or const.HIGHWAY not in df.columns:
         return df
 
-    m1 = df[const.HIGHWAY] == "footway"
+    #m1 = df[const.HIGHWAY] == "footway"
     m2 = ~df["walk"].isin(["sidewalk", "crossing", "access_aisle"])
     m3 = is_accessible(df, mode="bike")
     return df.loc[(m2) | (m3)]
