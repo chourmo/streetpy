@@ -6,6 +6,7 @@ import netpandas as npd
 import pandas as pd
 
 import streetpy.attributes as attr
+
 # import streetpy constants and default configurations
 import streetpy.config.constants as const
 import streetpy.config.osm_tags as osm_conf
@@ -52,7 +53,7 @@ def streets_from_osm(
     """
 
     if not HAS_OSM:
-        raise ValueError("Pyrosm must be installed")
+        raise ValueError("osmdatapy must be installed")
 
     if os.path.exists(path_or_place):
         osm_data = OSM(filepath=path_or_place)
