@@ -43,13 +43,14 @@ def streets_from_osm(
         path_or_place : path of a pbf file or place name
         crs : spatial projection in projected coordinate space
         modes : if True fetch all modes or if list of modes to fetch : drive, bike, transit, walk, rail
-        source : name of source column
-        target : name of target column
         access_level : filter streets by access tag, "all" or "permissive" (non-private) or "public" (non private or permissive)
         track : keep tracks or non-urban streets
         construction : keep proposed or in construction streets
         config : a configuration .py object similar to config.osm_tags
         country: used for OSM default values
+
+    Returns:
+        a geo and netpandas dataframe with street data
     """
 
     if not HAS_OSM:
